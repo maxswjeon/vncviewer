@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	</head>
+	<body>
+		<canvas id="canvas_main"></canvas>
+		<div id="wrap">
+			<div id="content">
+				<div id="tabgroup">
+					<ul>
+						<li>Basic</li>
+						<li>Advanced</li>
+					</ul>
+				</div>
+				<form action="/connect" method="post">
+					<div id="basic">
+						<label for="host">Host</label>
+						<input type="text" name="host"><br>
+
+						<label for="host">Port</label>
+						<input type="text" name="ip"><br>
+					</div>
+					<div id="advanced">
+						<label for="share_desktop">Share Desktop</label>
+						<input type="checkbox" name="share_desktop"><br/>
+
+
+					</div>
+					<input type="submit">
+				</form>
+			</div>
+		</div>
+	</body>
+</html>

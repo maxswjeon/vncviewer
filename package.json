@@ -1,0 +1,11 @@
+{
+  "name": "vncviewer",
+  "version": "1.0.0",
+  "description": "VNC Web Viewer in NodeJS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sangwan Jeon (maxswjeon@naver.com)",
+  "license": "GPL-3.0"
+}

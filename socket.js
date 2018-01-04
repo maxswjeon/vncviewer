@@ -1,15 +1,53 @@
 const net = require('net');
 const crypto = require('crypto');
 
-const constants = require('./constants');
-
 const ProtocolError = require('./errors/ProtocolError');
 const OptionError = require('./errors/OptionError');
 const ConnectionError = require('./errors/ConnectionError');
 const AuthenticationError = require('./errors/AuthenticationError');
 
+//SecurityType Constants
+const SecurityType = {
+	Invalid : 0,
+	None : 1,
+	VNC : 2
+};
+
+//Server Message Constants
+const ServerMessage = {
+	FramebufferUpdate : 0,
+	SetColorMapEntries : 1,
+	Bell : 2,
+	ServerCutText : 3
+};
+
+//Client Message Constants
+const ClientMessage = {
+	SetPixelFormat : 0,
+	SetEncodings : 2,
+	FramebufferUpdateRequest : 3,
+	KeyEvent : 4,
+	PonterEvent : 5,
+	ClientCutText : 6
+};
+
 let majorVersion;
 let minorVersion;
+let desktopInfo = {
+	width : -1,
+	height : -1,
+	bitsPerPixel : -1,
+	depth : -1,
+	isBigEndian : false,
+	isTrueColor : false,
+	maxRed : -1,
+	maxGreen : -1,
+	maxBlue : -1,
+	shiftRed : -1,
+	shiftGreen : -1,
+	shiftBlue : -1,
+	name: null,
+};
 
 //PacketStatus
 let ProtocolVersionHandshake = false;
@@ -17,6 +55,7 @@ let SecurityHandshake = false;
 let Authentication = false;
 let SecurityResult = false;
 let FailReason = false;
+let ServerInit = false;
 
 
 exports.Connect = function (options) {
@@ -31,9 +70,9 @@ exports.Connect = function (options) {
 	});
 
 	client.on('data', function (data) {
+		console.log();
 		console.log(data);
 		console.log(data.toString());
-		console.log();
 
 		let regex;
 
@@ -90,13 +129,13 @@ exports.Connect = function (options) {
 					console.warn('Using Protocol version 3.3. '
 								+ 'Security option is ignored. '
 								+ 'Using server selected security : '
-								+ constants.securityType[security]);
+								+ options.securityType.ToString());
 
 					/*
 					* In version 3.3, there is no SecurityResult packet sent
 					* when securityType is None.
 					*/
-					if (security === constants.securityType.indexOf('None')){
+					if (options.security === SecurityType.None){
 						Authentication = true;
 						SecurityResult = true;
 
@@ -113,7 +152,7 @@ exports.Connect = function (options) {
 			}
 
 			//Challenge does not exists in None
-			if (constants.securityType[options.security] == 'None'){
+			if (options.security === SecurityType.None){
 				Authentication = true;
 
 				//!!IMPORTANT!!
@@ -179,7 +218,8 @@ exports.Connect = function (options) {
 				console.log('Login Successful.');
 				SecurityResult = true;
 
-				//TODO Send Initial Messages
+				//Send ClientInit Packet
+				//RFC6143 7.3.1 ClientInit
 				client.write(options.shareDesktop ? '\1' : '\0');
 
 				//End of Parsing Packet
@@ -216,9 +256,55 @@ exports.Connect = function (options) {
 				throw new ProtocolError('Not defined SecurityResult : ' + result);
 			}
 
+			//End of Parsing Packet
+			return;
+		}
+
+		if (!ServerInit) {
+			//Read ServerInit Packet
+			//RFC6143 7.3.2 ServerInit
+			//RFC6143 7.4 Pixel Format Data Structure
+			desktopInfo.width = data.readUIntBE(0, 2);
+			desktopInfo.height = data.readUIntBE(2, 2);
+
+			//ServerPixelFormat
+			desktopInfo.bitsPerPixel = data[4];
+			desktopInfo.depth = data[5];
+			desktopInfo.isBigEndian = data[6] === 0 ? false : true;
+			desktopInfo.isTrueColor = data[7] === 0 ? false : true;
+			desktopInfo.maxRed = data.readUIntBE(8, 2);
+			desktopInfo.maxGreen = data.readUIntBE(10, 2);
+			desktopInfo.maxBlue = data.readUIntBE(12, 2);
+			desktopInfo.shiftRed = data[14];
+			desktopInfo.shiftGreen = data[15];
+			desktopInfo.shiftBlue = data[16];
+
+			let namelen = data.readUIntBE(20, 4);
+			desktopInfo.name = data.slice(24, 24 + namelen).toString();
+
+			console.log('Connected To Desktop : ' + desktopInfo.name);
+
+			ServerInit = true;
 
 			//End of Parsing Packet
 			return;
+		}
+
+		let messageType = data[0];
+		if (messageType === ServerMessage.FramebufferUpdate) {
+
+		}
+		else if (messageType === ServerMessage.SetColorMapEntries) {
+
+		}
+		else if (messageType === ServerMessage.Bell) {
+
+		}
+		else if (messageType === ServerMessage.ServerCutText) {
+
+		}
+		else {
+			throw new ProtocolError('Undefined Message Type : ' + messageType);
 		}
 
   	});
@@ -231,19 +317,10 @@ exports.Connect = function (options) {
 function checkOptions(options) {
 	//Set Security Option to None when it isn't selected
 	if (!options.hasOwnProperty('security')) {
-		options.security = 'None';
+		options.security = SecurityType.None;
 	}
 
-	//Change Security Option to Code
-	options.security = constants.securityType.indexOf(options.security);
-
-	//If Security Option was not supported, throw error.
-	//Only None and VNC is supported
-	if (options.security === -1){
-		throw new OptionError('Security Option Not supported. Only None and VNCauth is supported');
-	}
-
-	if (options.security === 2) {
+	if (options.security === SecurityType.VNC) {
 		if (!options.password) {
 			throw new OptionError('Password should be provided when Security Option is VNCAuth');
 		}

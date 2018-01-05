@@ -28,7 +28,13 @@ let SecurityResult = false;
 let FailReason = false;
 let ServerInit = false;
 
-let socketVersion;
+let socketVersion = {
+	version : -1,
+	major : -1,
+	minor : -1
+};
+
+let client;
 
 class Handshake {
 	static protocol (data) {
@@ -50,10 +56,11 @@ class Handshake {
 		}
 
 		// Parse Info & send ProtocolVersion Handshake
-		const protocolVersion = parseFloat(`${ handshakedInfo[1] }.${ handshakedInfo[2] }`);
+		const protocolVersion = parseFloat(`${ handshakedInfo[1] }.${ parseInt(handshakedInfo[2]) }`);
+
 		setVersion(protocolVersion);
 
-		const RFB = `RFB 00${ version[0] }.00${ version[2] }\n`;
+		const RFB = `RFB ${ (socketVersion.major + '').padStart(3, '0') }.${ (socketVersion.minor + '').padStart(3, '0') }\n`;
 		client.write(RFB);
 
 		ProtocolVersionHandshake = true;
@@ -72,8 +79,8 @@ class Handshake {
 			console.warn(
 				'Using Protocol version 3.3.',
 				'Security option is ignored.',
-				'Using server selected security :'.
-				options.securityType
+				'Using server selected security : ',
+				security
 			);
 
 			/*
@@ -95,6 +102,7 @@ class Handshake {
 		const NO_INDEX = -1;
 		const isSupportSecurityOption = NO_INDEX === list.indexOf(options.security);
 		if (isSupportSecurityOption) {
+			console.log(list);
 			const message = 'Selected Security Option Not Supported';
 			throw new ConnectionError(message);
 		}
@@ -131,7 +139,7 @@ class Handshake {
 
 		// VNC uses mirrored password in encrypting Challenge.
 		const mirroredBits = mirrorBits(Buffer.from(options.password), 'utf-8');
-		const cipher = crypto.createCipheriv('des-ecb', mirrorBits, '');
+		const cipher = crypto.createCipheriv('des-ecb', mirroredBits, '');
 
 		client.write(cipher.update(data));
 
@@ -156,16 +164,17 @@ class Handshake {
 			// !!IMPORTANT!!
 			// The protocol is diffrent here by the version
 			// RFC6143 Appendix A. Differnces in Earlier Protocol Versions
+			let message;
 			switch (socketVersion) {
 				case 3.3:
 				case 3.7:
 					FailReason = true;
-					const message = 'No reason Provided because of the Protocol Version.';
+					message = 'No reason Provided because of the Protocol Version.';
 					throw new AuthenticationError(message);
 				case 3.8:
 				default:
 					const reasonLength = data.readUIntBE(4, 4);
-					const message = data.slice(8, 8 + reasonLength);
+					message = data.slice(8, 8 + reasonLength);
 					throw new AuthenticationError(message);
 				}
 		}
@@ -179,12 +188,13 @@ class Handshake {
 module.exports.Connect = (options) => {
 	checkOptions(options);
 
-	const client = getClient(options);
+	client = getClient(options);
 
 	client.on('end', () => console.log('Connection Closed by Server.'));
 	client.on('data', (data) => {
 		console.log();
 		console.log(data);
+		console.log(data.toString());
 
 		if (!ProtocolVersionHandshake) {
 			/*
@@ -215,7 +225,7 @@ module.exports.Connect = (options) => {
 			Handshake.securityResult(data, options);
 		}
 		else if (!ServerInit) {
-			initialise(data);
+			initalize(data);
 		}
 		else {
 			const messageType = data[0];
@@ -243,7 +253,7 @@ function getClient (__option) {
 	return client;
 }
 
-function initialise (data, options) {
+function initalize (data, options) {
 	// Read ServerInit Packet
 	// RFC6143 7.3.2 ServerInit
 	// RFC6143 7.4 Pixel Format Data Structure
@@ -301,7 +311,9 @@ function setVersion (version) {
 	const VERSION_LIST = [3.3, 3.7, 3.8];
 	const isSupportVersion = VERSION_LIST.includes(version);
 	if (isSupportVersion) {
-		socketVersion = version;
+		socketVersion.version = version;
+		socketVersion.major = parseInt(version);
+		socketVersion.minor = (version + '').split('.')[1];
 	}
 	else {
 		console.warn(
@@ -312,7 +324,9 @@ function setVersion (version) {
 		);
 
 		const baseVersion = 3.3;
-		socketVersion = baseVersion;
+		socketVersion.version = baseVersion;
+		socketVersion.major = 3;
+		socketVersion.minor = 3;
 	}
 }
 
@@ -328,8 +342,9 @@ function getSupportedSecurity (data) {
 
 	const type = [];
 	for (let i = 0; i < nType; i++){
-		type[i] = data[i - 1];
+		type[i] = data[i + 1];
 	}
+
 
 	return type;
 }

@@ -1,37 +1,57 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<!--[if lt IE 9]>
+			<script src="/js/html5shiv.js"></script>
+		<![endif]-->
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta http-equiv="X-UA-Compatible" content="ie=edge">
-		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css"/>
+		<link rel="stylesheet" type="text/css" href="/css/normalize.min.css"/>
 		<link rel="stylesheet" type="text/css" href="/css/index.css"/>
-		<script async src="/js/index.js"></script>
+		<script src="/js/socket.io/socket.io.js" defer></script>
+		<script src="/js/index.js" defer></script>
 	</head>
 	<body>
 		<div id="wrap">
+		<div id="center">
 			<canvas id="canvas_main" onmousemove="pointerevent"></canvas>
 			<div id="content">
-				<div id="tabgroup">
+				<nav id="tabgroup">
 					<ul>
-						<li>Basic</li>
-						<li>Advanced</li>
+						<li><a class="navlink" index="0">Basic</a></li>
+						<li><a class="navlink" index="1">Advanced</a></li>
 					</ul>
-				</div>
-				<form action="/connect" method="post">
-					<div id="basic">
+				</nav>
+				<form name="form">
+					<div id="basic" class="tab">
+						<h1 class="title">VNC Online Viewer</h1>
 						<label for="host">Host</label>
 						<input type="text" name="host"><br>
-						<label for="host">Port</label>
-						<input type="text" name="ip"><br>
+						<label for="port">Port</label>
+						<input type="text" name="port"><br>
+						<label for="security">Security</label>
+						<select name="security">
+							<option value="0" disabled selected hidden>Chose Security Type</option>
+							<option value="1">None</option>
+							<option value="2">VNCAuth</option>
+						</select><br>
+						<div id="password" class = "hidden">
+							<label for="password">Password</label>
+							<input type="text" name="password"><br>
+						</div>
 					</div>
-					<div id="advanced">
+					<div id="advanced" class="hidden tab">
+						<h2 class="title">Options</h2>
+						<input type="checkbox" name="share_desktop" checked>
 						<label for="share_desktop">Share Desktop</label>
-						<input type="checkbox" name="share_desktop"><br/>
 					</div>
-					<input type="submit">
+					<div id="connect">
+						<input type="button" value="Connect" onclick="connect()"><br>
+					</div>
 				</form>
 			</div>
+		</div>
 		</div>
 	</body>
 </html>

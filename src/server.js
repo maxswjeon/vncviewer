@@ -39,7 +39,11 @@ ioServer.sockets.on('connection', (socket) => {
 
 	let vnc = null;
 
-	socket.on('connect', (host, ip, security, password) => {
+	socket.on('vncconnect', (message) => {
+
+		winston.info(JSON.parse(message));
+
+		message = JSON.parse(message);
 
 		if (vnc) {
 			const msg = 'Already Connected to ' + vnc.host + ':' + vnc.port;
@@ -47,7 +51,7 @@ ioServer.sockets.on('connection', (socket) => {
 			return;
 		}
 
-		vnc = new VNC();
+		vnc = new VNC.default();
 		vnc.setCallback((data) => {
 			if (data.status) {
 				socket.emit('recieve', data);
@@ -56,7 +60,7 @@ ioServer.sockets.on('connection', (socket) => {
 				socket.emit('error', data);
 			}
 		});
-		vnc.Connect(host, ip, security, password);
+		vnc.Connect(message.host, message.port, message.security);
 	});
 
 	socket.on('send', (data) => vnc.Send(data));
@@ -74,4 +78,4 @@ app.get('/', (req, res) => {
 	res.render('index.html');
 });
 
-app.listen(80, () => winston.info('Express server has started on port 80'));
+server.listen(80, () => winston.info('Express server has started on port 80'));

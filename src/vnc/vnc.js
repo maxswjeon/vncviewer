@@ -8,21 +8,22 @@ class VNC {
 		this.client = null;
 
 		// PacketStatus
-		this.PacketStatus = {};
-		this.PacketStatus.ProtocolVersionHandshake = false;
-		this.PacketStatus.SecurityHandshake = false;
-		this.PacketStatus.Authentication = false;
-		this.PacketStatus.SecurityResult = false;
-		this.PacketStatus.ServerInit = false;
+		this.PacketStatus = {
+			ProtocolVersionHandshake : false,
+			SecurityHandshake : false,
+			Authentication : false,
+			SecurityResult : false,
+			ServerInit : false,
+		};
 
 		this.desktopInfo = {};
 	}
 
-	Connect(host, port, security, password) {
+	Connect(host, port, security) {
 		this.security = security;
-		this.password = password;
+		console.log(this.PacketStatus);
 		try {
-			this.client = net.connect({ host, port }, () => this.callback({ status : true , error : null }));
+			this.client = net.connect({ host : host, port : port }, () => this.callback({ status : true , error : null }));
 		} catch (e) {
 			this.callback({ status : false, error : e });
 		}
@@ -136,6 +137,7 @@ class VNC {
 	}
 
 	_onRecieve(data) {
+		console.log(this.PacketStatus);
 		if (!this.PacketStatus.ProtocolVersionHandshake) {
 			/*
 			 * If we didn't get Protocol Handshaked, AND the packet isn't

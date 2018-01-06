@@ -431,4 +431,4 @@ class VNC {
 
 }
 
-export default VNC;
+exports.default = VNC;

@@ -4,8 +4,7 @@
   "description": "VNC Web Viewer in NodeJS",
   "main": "index.js",
   "scripts": {
-    "build": "babel src -d lib",
-    "start": "npm run build && node lib/server.js"
+    "start": "node src/server.js"
   },
   "author": "Sangwan Jeon (maxswjeon@naver.com)",
   "license": "GPL-3.0",
@@ -16,10 +15,6 @@
     "winston": "^2.4.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
-    "babel-preset-stage-2": "^6.24.1",
     "eslint": "^4.14.0"
   }
 }

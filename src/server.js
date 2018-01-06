@@ -12,8 +12,15 @@ const ioServer = io.listen(server);
 
 winston.configure({
 	transports : [
-		new winston.transports.File({ name : 'log_error', filename : 'logs/error.log', level : 'error' }),
-		new winston.transports.File({ name : 'log_info', filename : 'logs/info.log'})
+		new winston.transports.File({
+			name : 'log_error',
+			filename : __dirname + '/../logs/error.log',
+			level : 'error'
+		}),
+		new winston.transports.File({
+			name : 'log_info',
+			filename : __dirname + '/../logs/info.log'
+		})
 	]
 });
 
@@ -24,7 +31,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.set('views', __dirname + '/../views');
 app.set('view engine', 'ejs');
 app.engine('html', require('ejs').renderFile);
-app.use(express.static('public'));
+app.use(express.static( __dirname + '/../public'));
 
 ioServer.sockets.on('connection', (socket) => {
 
@@ -63,7 +70,7 @@ ioServer.sockets.on('connection', (socket) => {
 
 app.get('/', (req, res) => {
 	const ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
-	winston.info(ip +  ' Connected with ' + req.header('user-agent'));
+	winston.info(ip +  ' Accessed / with ' + req.header('user-agent'));
 	res.render('index.html');
 });
 

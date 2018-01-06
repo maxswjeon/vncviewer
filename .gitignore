@@ -58,6 +58,4 @@ typings/
 .env
 
 index.js
-*.pcapng
-rfc6143.pdf
-rfbproto.pdf
+resource/

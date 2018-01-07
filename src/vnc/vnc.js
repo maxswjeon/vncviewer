@@ -21,13 +21,12 @@ class VNC {
 
 	Connect(host, port, security) {
 		this.security = security;
-		console.log(this.PacketStatus);
 		try {
 			this.client = net.connect({ host : host, port : port }, () => this.callback({ status : true , error : null }));
 		} catch (e) {
 			this.callback({ status : false, error : e });
 		}
-		this.client.on('data', this._onRecieve);
+		this.client.on('data', (data) => this._onRecieve(this, data));
 		this.client.on('end', () => this.client = null);
 	}
 
@@ -136,66 +135,65 @@ class VNC {
 		this.callback = callback;
 	}
 
-	_onRecieve(data) {
-		console.log(this.PacketStatus);
-		if (!this.PacketStatus.ProtocolVersionHandshake) {
+	_onRecieve(that, data) {
+		if (!that.PacketStatus.ProtocolVersionHandshake) {
 			/*
 			 * If we didn't get Protocol Handshaked, AND the packet isn't
 			 * Protocol Handshake packet, throw error.
 			 */
-			this.callback(this._handleProtocol(data));
+			that.callback(that._handleProtocol(data));
 			return;
 		}
-		else if (!this.PacketStatus.SecurityHandshake) {
+		else if (!that.PacketStatus.SecurityHandshake) {
 			/*
 			 * If we didn't get Security Handshaked, AND the packet isn't
 			 * Security Handshake packet, throw error.
 			 */
-			this.callback(this._handleSecurity(data));
+			that.callback(that._handleSecurity(data));
 			return;
 		}
-		else if (!this.PacketStatus.Authentication) {
+		else if (!that.PacketStatus.Authentication) {
 			/*
 			 * If we didn't get authenticated, AND the packet isn't
 			 * Authentication Challenge packet, throw error.
 			 */
-			this.callback(this._handleAuthentication(data));
+			that.callback(that._handleAuthentication(data));
 			return;
 		}
-		else if (!this.PacketStatus.SecurityResult) {
+		else if (!that.PacketStatus.SecurityResult) {
 			/*
 			 * If we didn't get Security Result, AND the packet isn't
 			 * Security Result packet, throw error.
 			 */
-			this.callback(this._handleSecurityResult(data));
+			that.callback(that._handleSecurityResult(data));
 			return;
 		}
-		else if (!this.PacketStatus.ServerInit) {
-			this.callback(this._handleServerInit(data));
+		else if (!that.PacketStatus.ServerInit) {
+			that.callback(that._handleServerInit(data));
 			return;
 		}
 		else {
 			const messageType = data[0];
 			switch (messageType) {
 			case ServerMessage.FramebufferUpdate: {
-				this.callback(this._handleFrameUpdate(data));
+				that.callback(that._handleFrameUpdate(data));
 			}
 				return;
 			case ServerMessage.SetColorMapEntries: {
-				this.callback(this._handleSetColorMap(data));
+				that.callback(that._handleSetColorMap(data));
 				return;
 			}
 			case ServerMessage.Bell: {
-				this.callback(this._handleBell());
+				that.callback(that._handleBell());
 				return;
 			}
 			case ServerMessage.ServerCutText: {
-				this.callback(this._handleCutText(data));
+				that.callback(that._handleCutText(data));
 				return;
 			}
 			default: {
 				const msg = `Undefined Message Type: ${ messageType }`;
-				this.callback({ status : false, error : msg });
+				that.callback({ status : false, error : msg });
 				return;
 			}
 			}

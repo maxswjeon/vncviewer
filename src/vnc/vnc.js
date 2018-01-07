@@ -3,17 +3,16 @@ const net = require('net');
 const { SecurityType, ServerMessage, ClientMessage, MessageType } = require('./vncconst');
 
 class VNC {
-
 	constructor() {
 		this.client = null;
 
 		// PacketStatus
 		this.PacketStatus = {
-			ProtocolVersionHandshake : false,
-			SecurityHandshake : false,
-			Authentication : false,
-			SecurityResult : false,
-			ServerInit : false,
+			ProtocolVersionHandshake: false,
+			SecurityHandshake: false,
+			Authentication: false,
+			SecurityResult: false,
+			ServerInit: false,
 		};
 
 		this.desktopInfo = {};
@@ -22,9 +21,10 @@ class VNC {
 	Connect(host, port, security) {
 		this.security = security;
 		try {
-			this.client = net.connect({ host : host, port : port }, () => this.callback({ status : true , error : null }));
+			this.client = net.connect({ host, port }, () => this.callback({ status: true , error: null }));
 		} catch (e) {
-			this.callback({ status : false, error : e });
+			this.callback({ status: false, error: e });
+			return;
 		}
 		this.client.on('data', (data) => this._onRecieve(this, data));
 		this.client.on('end', () => this.client = null);
@@ -32,15 +32,19 @@ class VNC {
 
 	Send(data) {
 		if (!this.client) {
-			this.callback({ status : false, error : 'Undefined Data Type : ' + data.type });
+			this.callback({ status: false, error: `Undefined Data Type: ${ data.type }` });
+			return;
 		}
 
 		switch (data.type) {
 		case MessageType.ProtocolVersionHandshake: {
-			this.protocolVersion = data.version;
-			const RFB = `RFB ${ (data.version.major + '').padStart(3, '0') }.${ (data.version.minor + '').padStart(3, '0') }\n`;
-			this.client.write(RFB);
+			const { version } = data;
+
+			this.protocolVersion = version;
 			this.PacketStatus.ProtocolVersionHandshake = true;
+
+			const RFB = `RFB 00${ version.major }.00${ version.minor }\n`;
+			this.client.write(RFB);
 			break;
 		}
 		case MessageType.SecurityHandshake: {
@@ -60,7 +64,7 @@ class VNC {
 			break;
 		}
 		case MessageType.SetPixelFormat: {
-			let buf = Buffer.alloc(20, 0);
+			const buf = Buffer.alloc(20, 0);
 			buf[0] = ClientMessage.SetPixelFormat;
 			this._makePixelFormat(data.info).copy(buf, 4);
 
@@ -68,7 +72,7 @@ class VNC {
 			break;
 		}
 		case MessageType.SetEncodings: {
-			let buf = Buffer.alloc(4 * (data.encoding.length + 1), '\0');
+			const buf = Buffer.alloc(4 * (data.encoding.length + 1), '\0');
 			buf[0] = ClientMessage.SetEncodings;
 			buf.writeUIntBE(data.encoding.length, 2, 2);
 			for (let i = 0; i < data.encoding.length; ++i) {
@@ -79,7 +83,7 @@ class VNC {
 			break;
 		}
 		case MessageType.FramebufferUpdateRequest: {
-			let buf = Buffer.alloc(10, 0);
+			const buf = Buffer.alloc(10, 0);
 			buf[0] = ClientMessage.FramebufferUpdateRequest;
 			buf[1] = data.incremental ? 1 : 0;
 			buf.writeUIntBE(data.pos.x, 2, 2);
@@ -91,7 +95,7 @@ class VNC {
 			break;
 		}
 		case MessageType.KeyEvent: {
-			let buf = Buffer.alloc(8, 0);
+			const buf = Buffer.alloc(8, 0);
 			buf[0] = ClientMessage.KeyEvent;
 			buf[1] = data.isDown ? 1 : 0;
 			Buffer.from(data.key).copy(buf, 4);
@@ -100,7 +104,7 @@ class VNC {
 			break;
 		}
 		case MessageType.PointerEvent: {
-			let buf = Buffer.alloc(6, 0);
+			const buf = Buffer.alloc(6, 0);
 			buf[0] = ClientMessage.PointerEvent;
 			buf[1] = data.pointerInfo;
 			buf.writeUIntBE(data.pos.x, 2, 2);
@@ -110,7 +114,7 @@ class VNC {
 			break;
 		}
 		case MessageType.ClientCutText: {
-			let buf = Buffer.alloc(data.text.length + 8);
+			const buf = Buffer.alloc(data.text.length + 8);
 			buf[0] = ClientMessage.ClientCutText;
 			buf.writeUIntBE(data.text.length, 4, 4);
 			buf.write(data.text, 8);
@@ -119,82 +123,75 @@ class VNC {
 			break;
 		}
 		default: {
-			this.callback({ status : false, error : 'Undefined Data Type : ' + data.type });
-			return false;
+			this.callback({ status: false, error: `'Undefined Data Type: ${ data.type }` });
 		}
 		}
-		return true;
 	}
 
 	Close() {
-		if (this.client)
+		if (this.client) {
 			this.client.end();
+		}
 	}
 
 	setCallback(callback) {
 		this.callback = callback;
 	}
 
-	_onRecieve(that, data) {
-		if (!that.PacketStatus.ProtocolVersionHandshake) {
+	_onRecieve(context, data) {
+		if (!context.PacketStatus.ProtocolVersionHandshake) {
 			/*
 			 * If we didn't get Protocol Handshaked, AND the packet isn't
 			 * Protocol Handshake packet, throw error.
 			 */
-			that.callback(that._handleProtocol(data));
-			return;
+			context.callback(context._handleProtocol(data));
 		}
-		else if (!that.PacketStatus.SecurityHandshake) {
+		else if (!context.PacketStatus.SecurityHandshake) {
 			/*
 			 * If we didn't get Security Handshaked, AND the packet isn't
 			 * Security Handshake packet, throw error.
 			 */
-			that.callback(that._handleSecurity(data));
-			return;
+			context.callback(context._handleSecurity(data));
 		}
-		else if (!that.PacketStatus.Authentication) {
+		else if (!context.PacketStatus.Authentication) {
 			/*
 			 * If we didn't get authenticated, AND the packet isn't
 			 * Authentication Challenge packet, throw error.
 			 */
-			that.callback(that._handleAuthentication(data));
-			return;
+			context.callback(context._handleAuthentication(data));
 		}
-		else if (!that.PacketStatus.SecurityResult) {
+		else if (!context.PacketStatus.SecurityResult) {
 			/*
 			 * If we didn't get Security Result, AND the packet isn't
 			 * Security Result packet, throw error.
 			 */
-			that.callback(that._handleSecurityResult(data));
-			return;
+			context.callback(context._handleSecurityResult(data));
 		}
-		else if (!that.PacketStatus.ServerInit) {
-			that.callback(that._handleServerInit(data));
-			return;
+		else if (!context.PacketStatus.ServerInit) {
+			context.callback(context._handleServerInit(data));
 		}
 		else {
 			const messageType = data[0];
 			switch (messageType) {
 			case ServerMessage.FramebufferUpdate: {
-				that.callback(that._handleFrameUpdate(data));
+				context.callback(context._handleFrameUpdate(data));
+				break;
 			}
-				return;
 			case ServerMessage.SetColorMapEntries: {
-				that.callback(that._handleSetColorMap(data));
-				return;
+				context.callback(context._handleSetColorMap(data));
+				break;
 			}
 			case ServerMessage.Bell: {
-				that.callback(that._handleBell());
-				return;
+				context.callback(context._handleBell());
+				break;
 			}
 			case ServerMessage.ServerCutText: {
-				that.callback(that._handleCutText(data));
-				return;
+				context.callback(context._handleCutText(data));
+				break;
 			}
 			default: {
 				const msg = `Undefined Message Type: ${ messageType }`;
-				that.callback({ status : false, error : msg });
-				return;
+				context.callback({ status: false, error: msg });
 			}
 			}
 		}
@@ -203,33 +200,32 @@ class VNC {
 	_handleProtocol(data) {
 		// Check Protocol Handshake Packet
 		// RFC6143 7.1.1. ProtocolVersion Handshake
-		const PATTERN_HANDSHAKE = /RFB (\d\d\d)\.(\d\d\d)\n/;
+		const PATTERN_HANDSHAKE = /RFB 00(\d)\.00(\d)\n/;
 		const versionInfo = PATTERN_HANDSHAKE.exec(data);
 
 		// If it isn't a Protocol Handshake Packet
 		if (!versionInfo) {
 			const msg = 'Hadn\'t recieved Protocol Handshake!';
-			return { status : false, error : msg};
+			return { status: false, error: msg };
 		}
 
 		const isBrokenData = data.length !== 12;
 		if (isBrokenData) {
 			const msg = data.slice(data.indexOf(0x1a, 13) + 1, data.length);
-			return { status : false, error : msg};
+			return { status: false, error: msg };
 		}
 
-		let VNCVersion = {
-			version : -1,
-			major : parseInt(versionInfo[1]),
-			minor : parseInt(versionInfo[2])
+		const VNCVersion = {
+			version: parseFloat(VNCVersion.major + '.' + VNCVersion.minor),
+			major: parseInt(versionInfo[1]),
+			minor: parseInt(versionInfo[2])
 		};
 
-		// Parse Info & send ProtocolVersion Handshake
-		const protocolVersion = parseFloat(VNCVersion.major + '.' + VNCVersion.minor);
-
-		VNCVersion.version = protocolVersion;
-
-		return { status : true, type : MessageType.ProtocolVersionHandshake, version : VNCVersion};
+		return {
+			status: true,
+			type: MessageType.ProtocolVersionHandshake,
+			version: VNCVersion
+		};
 	}
 
 	_handleSecurity(data) {
@@ -241,7 +237,7 @@ class VNC {
 		// RFC6143 Appendix A. Differnces in Earlier Protocol Versions
 		if (this.protocolVersion.version === 3.3) {
 			// In Version 3.3, Server decides the security type
-			let security = data.readUIntBE(0, 3);
+			const security = data.readUIntBE(0, 3);
 
 			const isNoneSecurity = this.security === SecurityType.None;
 			if (isNoneSecurity) {
@@ -252,16 +248,13 @@ class VNC {
 			//No responce in version 3.3
 			this.PacketStatus.SecurityHandshake = true;
 
-			return { status : true, type : MessageType.SecurityHandshake33, security : security };
+			return { status: true, type: MessageType.SecurityHandshake33, security };
 		}
 
 		const list = this._getSupportedSecurity(data);
-
-		if (!list.status) {
-			return { status : false, error : list.error  };
-		}
-
-		return { status : true, type : MessageType.SecurityHandshake, security : list.type };
+		return (list.status)
+			? { status: true, type: MessageType.SecurityHandshake, security: list.type }
+			: { status: false, error: list.error };
 	}
 
 	_handleAuthentication(data) {
@@ -270,21 +263,18 @@ class VNC {
 
 		// VNC Authentication Challenge message size is fixed to 16 bytes.
 		const isBrokenData = data.length !== 16;
-		if (isBrokenData){
-			const msg = `Challenge Message corrupted. Expected 16 bytes, Got ${ data.length }bytes.`;
-			return { status : false, error : msg };
-		}
-
-		return{ status : true, type : MessageType.VNCAuthentication, challenge : data.toString() };
+		return (isBrokenData)
+			? { status: false, error: `Challenge Message corrupted. Expected 16 bytes, Got ${ data.length }bytes.` }
+			: { status: true, type: MessageType.VNCAuthentication, challenge: data.toString() };
 	}
 
 	_handleSecurityResult(data) {
 		// Check SecurityResult Packet
 		// RFC6143 7.1.3. SecurityResult Handshake
-		const result = data.readUIntBE(0, 4);
-		switch (result) {
+		const securityResult = data.readUIntBE(0, 4);
+		switch (securityResult) {
 		case 0: {
-			return { status : true, type : MessageType.SecurityResultHandshake };
+			return { status: true, type: MessageType.SecurityResultHandshake };
 		}
 		case 1: {
 			// !!IMPORTANT!!
@@ -295,22 +285,19 @@ class VNC {
 			case 3.3:
 			case 3.7: {
 				msg = 'No reason Provided because of the Protocol Version.';
-				return { status : false, type : MessageType.SecurityResultHandshake , error : msg};
+				return { status: false, type: MessageType.SecurityResultHandshake , error: msg };
 			}
 			case 3.8: {
 				const reasonLength = data.readUIntBE(4, 4);
 				msg = data.slice(8, 8 + reasonLength);
-				return { status : false, type : MessageType.SecurityResultHandshake , error : msg};
-			}
-			default:{
-				break;
+				return { status: false, type: MessageType.SecurityResultHandshake , error: msg };
 			}
 			}
 			break;
 		}
 		default: {
-			const msg = `Undefined SecurityResult :${ result }`;
-			return { status : false, type : MessageType.SecurityResultHandshake , error : msg};
+			const msg = `Undefined SecurityResult:${ result }`;
+			return { status: false, type: MessageType.SecurityResultHandshake , error: msg };
 		}
 		}
 	}
@@ -339,58 +326,59 @@ class VNC {
 
 		this.PacketStatus.ServerInit = true;
 
-		return { status : true, type : MessageType.ServerInit, info : this.desktopInfo };
+		return { status: true, type: MessageType.ServerInit, info: this.desktopInfo };
 	}
 
 	_handleFrameUpdate(data) {
-		let numRect = data.readUIntBE(2, 2);
-		let rectArr = new Array();
+		const rectArr = [];
+
+		const numRect = data.readUIntBE(2, 2);
 		for (let i = 0; i < numRect; ++i) {
-			let rect =  {};
-			rect.pos = {};
-			rect.pos.x = data.readUIntBE(4 + 12 * i, 2);
-			rect.pos.y = data.readUIntBE(6 + 12 * i, 2);
-			rect.width = data.readUIntBE(8 + 12 * i, 2);
-			rect.height = data.readUIntBE(10 + 12 * i, 2);
-			rect.encoding = data.readIntBE(12 + 12 * i, 4);
-			rectArr.push(rect);
+			rectArr.push({
+				pos: {
+					x: data.readUIntBE(4 + 12 * i, 2),
+					y: data.readUIntBE(6 + 12 * i, 2)
+				},
+				width: data.readUIntBE(8 + 12 * i, 2),
+				height: data.readUIntBE(10 + 12 * i, 2),
+				encoding: data.readIntBE(12 + 12 * i, 4)
+			});
 		}
 
-		return { status : true, type : MessageType.FramebufferUpdate, rect : rectArr };
+		return { status: true, type: MessageType.FramebufferUpdate, rect: rectArr };
 	}
 
 	_handleSetColorMap(data) {
-		let colorArr = new Array();
+		const colorArr = [];
 
 		//I don't know where it is used
-		let firstColor =  data.readUIntBE(2, 2);
-
-		let numColor = data.readUIntBE(4, 2);
+		const firstColor =  data.readUIntBE(2, 2);
+		const numColor = data.readUIntBE(4, 2);
 		for (let i = 0; i < numColor; ++i) {
-			let color = {};
-			color.Red = data.readUIntBE(6 + 6 * i, 2);
-			color.Green = data.readUIntBE(8 + 6 * i, 2);
-			color.Blue = data.readUIntBE(10 + 6 * i, 2);
-			colorArr.push(color);
+			colorArr.push({
+				Red: data.readUIntBE(6 + 6 * i, 2),
+				Green: data.readUIntBE(8 + 6 * i, 2),
+				Blue: data.readUIntBE(10 + 6 * i, 2)
+			});
 		}
 
 		return {
-			status : true,
-			type : MessageType.SetColorMapEntries,
-			firstColor : firstColor,
-			color : colorArr
+			status: true,
+			type: MessageType.SetColorMapEntries,
+			firstColor,
+			color: colorArr
 		};
 	}
 
 	_handleBell() {
-		return { status : true, type : MessageType.Bell };
+		return { status: true, type: MessageType.Bell };
 	}
 
 	_handleCutText(data) {
-		let length = data.readUIntBE(4, 4);
-		let text = data.slice(8, 8 + length).toString();
+		const length = data.readUIntBE(4, 4);
+		const text = data.slice(8, 8 + length).toString();
 
-		return { status : true, type : MessageType.ServerCutText, text : text };
+		return { status: true, type: MessageType.ServerCutText, text };
 	}
 
 	_getSupportedSecurity(data) {
@@ -400,7 +388,7 @@ class VNC {
 		if (nType === 0) {
 			const reasonLength = data.readUIntBE(1, 4);
 			const reason = data.slice(5, 5 + reasonLength);
-			return { status : false, error : reason };
+			return { status: false, error: reason };
 		}
 
 		const type = [];
@@ -408,13 +396,13 @@ class VNC {
 			type[i] = data[i + 1];
 		}
 
-
-		return { status : true, type : type };
+		return { status: true, type: type };
 	}
 
 	_makePixelFormat(data) {
 		//RFC6143 7.4. Pixel Format Data Structure
-		let buf = Buffer.alloc(16, 0);
+		const buf = Buffer.alloc(16, 0);
+
 		buf[0] = data.bitsPerPixel;
 		buf[1] = data.depth;
 		buf[2] = data.isBigEndian ? 1 : 0;
@@ -428,7 +416,6 @@ class VNC {
 
 		return buf;
 	}
-
 }
 
-exports.default = VNC;
+module.exports = VNC;

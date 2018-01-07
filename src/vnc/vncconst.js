@@ -21,13 +21,13 @@ module.exports.ClientMessage = {
 };
 
 module.exports.MessageType = {
-	ProtocolVersionHandshake : 0,
-	SecurityHandshake33 : 1,
-	SecurityHandshake : 2,
-	VNCAuthentication : 3,
-	SecurityResultHandshake : 4,
-	ClientInit : 5,
-	ServerInit : 6,
+	ProtocolVersionHandshake: 0,
+	SecurityHandshake33: 1,
+	SecurityHandshake: 2,
+	VNCAuthentication: 3,
+	SecurityResultHandshake: 4,
+	ClientInit: 5,
+	ServerInit: 6,
 
 	FramebufferUpdate: 100,
 	SetColorMapEntries: 101,

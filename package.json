@@ -9,7 +9,7 @@
   "author": "Sangwan Jeon (maxswjeon@naver.com)",
   "license": "GPL-3.0",
   "dependencies": {
-    "ejs": "^2.5.7",
+    "ejs": "^3.1.6",
     "express": "^4.16.2",
     "socket.io": "^2.0.4",
     "winston": "^2.4.0"
